@@ -19,9 +19,7 @@ class BasePopulation(with_metaclass(abc.ABCMeta, object)):
     positions of all objects is obtained using he property positions. How these
     are obtained (eg. from a statistical model, or read from a database or list
     is an implementation question. Instances of this class are guaranteed to have
-    the modelparams method, if `hasPositions` is set to True, it will also have
-    a `positions` property
-
+    the modelparams method, and a `positions` property
     """
 
     @abc.abstractmethod
@@ -32,7 +30,14 @@ class BasePopulation(with_metaclass(abc.ABCMeta, object)):
         pass
 
     @abc.abstractproperty
+    def idxvalues(self):
+        pass
+
+    @abc.abstractproperty
     def hasPositions(self):
+        """
+        bool which is true if a sequence exists
+        """
         pass
 
     @abc.abstractproperty
@@ -89,7 +94,7 @@ class BaseSimulation(with_metaclass(abc.ABCMeta, object)):
 
 
     @abc.abstractmethod
-    def  pair_method(obsHistID, objid, maxObsHistID):
+    def  pair_method(self, obsHistID, objid, maxObsHistID):
         pass
 
 
@@ -107,4 +112,12 @@ class BaseSimulation(with_metaclass(abc.ABCMeta, object)):
         Parameters
         ----------
         """
+        pass
 
+    @abc.abstractmethod
+    def write_lc(self, idx, output, method, key=None):
+        pass
+
+    @abc.abstractmethod
+    def write_simulation(self, output, method, key=None):
+        pass
