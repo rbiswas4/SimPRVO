@@ -26,5 +26,5 @@ setup(# package information
       packagedir={PACKAGENAME: 'varsim'},
       # What data to include as packages
       include_package_data=True,
-      package_data={PACKAGENAME:['example_data/*']}
+      package_data={PACKAGENAME:['example_data/example_pointings.csv']}
       )
