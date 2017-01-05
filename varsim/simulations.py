@@ -115,7 +115,7 @@ class BasicSimulation(BaseSimulation):
         df['zpsys']= 'ab'
         df['pid'] = self.pair_method(df.objid, df.obsHistID, self.maxObsHistID)
         df['pid'] = df.pid.astype(np.int)
-        lc = df[['pid', 'objid', 'expMJD', 'filter', 'ModelFlux', 'fieldID', 'flux',
+        lc = df[['pid', 'obsHistID', 'objid', 'expMJD', 'filter', 'ModelFlux', 'fieldID', 'flux',
                  'fluxerr', 'deviations', 'zp', 'zpsys']]
         lc.set_index('pid', inplace=True)
         return lc
