@@ -5,6 +5,7 @@ from __future__ import absolute_import, print_function
 import abc
 from future.utils import with_metaclass
 import numpy as np
+import pandas as pd
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.catUtils.supernovae import SNObject
 from .baseSimulations import BaseSimulation
@@ -128,7 +129,6 @@ class BasicSimulation(BaseSimulation):
             mode = 'w'
         if key is None:
             key='{}'.format(idx)
-        print(idx, mode)
         if method == 'hdf':
             lc.to_hdf(output, mode=mode, key=key, append=append, format=format)
         elif method == 'csv':
@@ -136,7 +136,27 @@ class BasicSimulation(BaseSimulation):
         else:
             raise ValueError('method not implemented yet')
 
-    def write_simulation(self, output, method, clobber=False, key=None, format='t'):
+    def write_population(self, output, method, clobber=False, key=None, format='t',
+                         get_dataframe=False):
+        mode = 'a'
+        if clobber:
+            mode = 'w'
+        if key is None:
+            key='population'
+        append=not(clobber)
+        idxvalues = list(idx for idx in self.population.idxvalues)
+        l = list(self.population.modelparams(idx) for idx in self.population.idxvalues) 
+        df = pd.DataFrame(l, index=idxvalues)
+        if method is None:
+            pass
+        elif method=='hdf':
+            df.to_hdf(output, mode=mode, append=append, clobber=clobber, key=key, format='t')
+        else:
+            raise ValueError('method not implemented')
+        if get_dataframe:
+            return df
+
+    def write_photometry(self, output, method, clobber=False, key=None, format='t'):
 
         for idx in self.population.idxvalues:
             print('writing {0}, {1}, {2}'.format(idx, clobber, key))
@@ -144,5 +164,12 @@ class BasicSimulation(BaseSimulation):
             self.write_lc(idx, output, method, clobber, key=key,
                           append=append, format=format)
             clobber = False
+
+    def write_simulation(self, phot_output, pop_output, method, clobber=False,
+                         key=None, format='t'):
+        """
+        """
+        self.write_photometry(phot_output, method, clobber=clobber, key=key, format=format) 
+        self.write_population(pop_output, method, clobber=clobber, key=key, format=format)
 
 

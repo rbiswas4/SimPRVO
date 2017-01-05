@@ -119,5 +119,13 @@ class BaseSimulation(with_metaclass(abc.ABCMeta, object)):
         pass
 
     @abc.abstractmethod
-    def write_simulation(self, output, method, key=None):
+    def write_photometry(self, output, method, key=None):
+        pass
+
+    @abc.abstractmethod
+    def write_simulation(self, phot_output, pop_output, method, key=None):
+        pass
+    
+    @abc.abstractmethod
+    def write_population(self, output, method, key=None):
         pass
