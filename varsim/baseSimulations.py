@@ -7,52 +7,14 @@ import abc
 from future.utils import with_metaclass
 
 
-__all__ = ['BasePopulation', 'BaseModel', 'BaseSimulation']
-
-
-class BasePopulation(with_metaclass(abc.ABCMeta, object)):
-    """
-    The base class used describing the population of objects of interest. This
-    population is defined in terms of model parameters, and each object in the
-    population is specified by a unique index idx. The model parameters for an
-    object is obtained as a dictionary using the method modelparams, and the
-    positions of all objects is obtained using he property positions. How these
-    are obtained (eg. from a statistical model, or read from a database or list
-    is an implementation question. Instances of this class are guaranteed to have
-    the modelparams method, and a `positions` property
-    """
-
-    @abc.abstractmethod
-    def modelparams(self, idx):
-        """
-        dictionary of model parameter names and parameters
-        """
-        pass
-
-    @abc.abstractproperty
-    def idxvalues(self):
-        pass
-
-    @abc.abstractproperty
-    def hasPositions(self):
-        """
-        bool which is true if a sequence exists
-        """
-        pass
-
-    @abc.abstractproperty
-    def positions(self):
-        """
-        Designed to be an array of idx, ra, dec (degrees)
-        """
-        pass
+__all__ = ['BaseModel', 'BaseSimulation']
 
 class BaseModel(with_metaclass(abc.ABCMeta, object)):
     """
     class to represent a model
     """
     @abc.abstractmethod
-    def setModelParameters(self, **params):
+    def setModelParameters(self, modelparams, positions):
         pass
 
     @abc.abstractproperty

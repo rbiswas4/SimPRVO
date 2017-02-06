@@ -1,4 +1,5 @@
 from .version import *
+from .basePopulations import *
 from .baseSimulations import *
 from .simulations import *
 import os

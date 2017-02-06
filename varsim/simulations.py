@@ -71,9 +71,10 @@ class BasicSimulation(BaseSimulation):
 
         # obtain the model parameters from the population
         paramDict = self.population.modelparams(idx)
-        self.model.setModelParameters(**paramDict)
-        myra = paramDict['ra']
-        mydec = paramDict['dec']
+        # positions = self.population.positions(idx)
+        self.model.setModelParameters(paramDict) #, positions)
+        myra = 0. #positions['ra']
+        mydec = 0. # positions['dec']
         
         timeRange = (self.model.minMjd, self.model.maxMjd)
         if None not in timeRange:
@@ -171,5 +172,3 @@ class BasicSimulation(BaseSimulation):
         """
         self.write_photometry(phot_output, method, clobber=clobber, key=key, format=format) 
         self.write_population(pop_output, method, clobber=clobber, key=key, format=format)
-
-
