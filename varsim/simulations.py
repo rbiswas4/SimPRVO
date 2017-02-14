@@ -102,7 +102,7 @@ class BasicSimulation(BaseSimulation):
                                                 fluxinMaggies=modelFlux[i],
                                                 m5=row['fiveSigmaDepth'])
 
-        
+        print(fluxerr) 
         rng = self.randomState
         df.reset_index(inplace=True)
         df['objid'] = np.ones(numObs)*np.int(idx)
