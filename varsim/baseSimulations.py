@@ -3,39 +3,17 @@
 - modelflux
 """
 from __future__ import absolute_import, print_function
+__all__ = ['BaseSimulation']
+
 import abc
 from future.utils import with_metaclass
 
 
-__all__ = ['BaseModel', 'BaseSimulation']
-
-class BaseModel(with_metaclass(abc.ABCMeta, object)):
-    """
-    class to represent a model
-    """
-    @abc.abstractmethod
-    def setModelParameters(self, modelparams, positions):
-        pass
-
-    @abc.abstractproperty
-    def minMjd(self):
-        pass
-
-    @abc.abstractproperty
-    def maxMjd(self):
-        pass
-
-    @abc.abstractmethod
-    def modelFlux(self, mjd, bandpass, bandpassobj):
-        """
-        method to calculate the bandpass flux as a function of mjd, and either
-        the bandpass or the bandpassobj
-        """
-        pass
 
 class BaseSimulation(with_metaclass(abc.ABCMeta, object)):
     """
-    A class defining all the inputs for a simulation
+    A class defining all the methods and attributes to any simulation
+
     Parameters
     ----------
     population :
@@ -64,6 +42,7 @@ class BaseSimulation(with_metaclass(abc.ABCMeta, object)):
     def pointings(self):
         """
         `pd.DataFrame` of `OpSim` Pointings with at least minimal columns
+        of mjd, band, 
         """
         pass
 
