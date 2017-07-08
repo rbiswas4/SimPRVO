@@ -2,15 +2,15 @@
 Concrete Simulation Classes
 """
 from __future__ import absolute_import, print_function
-import abc
 from future.utils import with_metaclass
+__all__ = ['BasicSimulation']
+import abc
 import numpy as np
 import pandas as pd
 from lsst.sims.photUtils import BandpassDict
 from lsst.sims.catUtils.supernovae import SNObject
 from .baseSimulations import BaseSimulation
-
-__all__ = ['BasicSimulation']
+from sndata import LightCurve
 
 
 class BasicSimulation(BaseSimulation):
@@ -33,67 +33,25 @@ class BasicSimulation(BaseSimulation):
     pointingcolumnDict : None
     pruneWithRadius : False
     """
-    def __init__(self, population, model, pointings, rng, maxObsHistID,
-                 pointingColumnDict, pruneWithRadius):
+    def pair_method(self, obsHistID, objID):
+        return '_'.join(map(str, [obsHistID, objID]))
 
-        self.model = model
-        self.population = population
-        self._pointings = pointings
-        self._rng = rng
-        self.maxObsHistID = maxObsHistID
-        self.pointingColumnDict = pointingColumnDict
-        self.pruneWithRadius = pruneWithRadius
-        self.bandPasses = BandpassDict.loadTotalBandpassesFromFiles()
-
-    @property
-    def randomState(self):
-        return self._rng
-
-    def  pair_method(self, obsHistID, objid, maxObsHistID):
-        return objid * maxObsHistID + obsHistID
-
-
-    @property
-    def pointings(self):
-        """
-        `pd.DataFrame` of `OpSim` Pointings with at least minimal columns
-        """
-        return self._pointings
-
-    def lc(self, idx, maxObsHistID=None):
-        """
-
-        Parameters
-        ----------
-        """
-        if maxObsHistID is None:
-            maxObsHistID = self.maxObsHistID
-
-        # obtain the model parameters from the population
-        paramDict = self.population.modelparams(idx)
-        # positions = self.population.positions(idx)
-        self.model.setModelParameters(paramDict) #, positions)
-        myra = 0. #positions['ra']
-        mydec = 0. # positions['dec']
-        
-        timeRange = (self.model.minMjd, self.model.maxMjd)
-        if None not in timeRange:
-            queryTime = 'expMJD < {1} and expMJD > {0}'.format(timeRange[0], timeRange[1])
-            df = self.pointings.copy().query(queryTime)
-        else:
+    def lc(self, idx,
+           add_cols=('ModelFlux', 'deviations', 'objID', 'fieldID',
+                     'obsHistID', 'fiveSigmaDepth')):
+        params = self.population.modelParams(idx)
+        self.model.setModelParameters(params)
+        if self.timeRange is None:
             df = self.pointings.copy()
-        if self.pruneWithRadius:
-            raise ValueError('Not implemented')
-        numObs = len(self.pointings)
-        modelFlux = np.zeros(numObs)
-        fluxerr = np.zeros(numObs)
-
-        sn = SNObject(myra, mydec)
-
-
+        else:
+            l, h = self.timeRange
+            df = self.pointings.query('expMJD < @h and expMJD > @l')
+        
+        fluxerr = np.zeros(len(df))
+        modelFlux = np.zeros(len(df))
+        sn = SNObject(30., 40.)
         for i, rowtuple in enumerate(df.iterrows()):
             row = rowtuple[1]
-            # print(row['expMJD'], row['filter'], row['fiveSigmaDepth'])
             bp = self.bandPasses[row['filter']]
             modelFlux[i] = self.model.modelFlux(row['expMJD'],
                                                 bandpassobj=bp)
@@ -102,73 +60,51 @@ class BasicSimulation(BaseSimulation):
                                                 fluxinMaggies=modelFlux[i],
                                                 m5=row['fiveSigmaDepth'])
 
-        print(fluxerr) 
         rng = self.randomState
-        df.reset_index(inplace=True)
-        df['objid'] = np.ones(numObs)*np.int(idx)
-        df['objid'] = df.objid.astype(np.int)
         df['fluxerr'] = fluxerr
         deviations = rng.normal(size=len(df)) 
         df['deviations'] = deviations
         df['zp'] = 0.
         df['ModelFlux'] = modelFlux
         df['flux'] = df['ModelFlux'] + df['deviations'] * df['fluxerr']
-        df['zpsys']= 'ab'
-        df['pid'] = self.pair_method(df.objid, df.obsHistID, self.maxObsHistID)
-        df['pid'] = df.pid.astype(np.int)
-        lc = df[['pid', 'obsHistID', 'objid', 'expMJD', 'filter', 'ModelFlux', 'fieldID', 'flux',
-                 'fluxerr', 'deviations', 'zp', 'zpsys']]
-        lc.set_index('pid', inplace=True)
-        return lc
+        df['zpsys'] = 'ab'
+        df['objID'] = idx
+        df['expID'] = list(self.pair_method(idx, obshistid) for obshistid in df.reset_index().obsHistID)
+        lc = df.reset_index().set_index('expID')
 
-    def write_lc(self, idx, output, method, clobber=False, key=None, append=False,
-                 format='t'):
+        _lc = LightCurve(lc)	
+        cols = list(_lc.mandatoryColumns.union(set(add_cols)))
+        lc = lc[cols]
+        return LightCurve(lc, bandNameDict=dict((x, 'lsst' + x) for x in list('ugrizy') ))
+
+    def write_population(self, fname, key='0'):
+        self.population.paramsTable.to_hdf(fname, key=key)
+
+    def write_lc(self, idx, fname, key='0', format='table',
+                 append=True):
         lc = self.lc(idx)
+        lc.lightCurve.to_hdf(fname, mode='a', key=key,
+                             format=format, append=append)
+                                
+    def write_photometry(self, fname, method='hdf', key='0',
+                         format='table', append=True):
+	"""
+	write tables of light curves in the simulation
 
-        mode = 'a'
-        if clobber:
-            mode = 'w'
-        if key is None:
-            key='{}'.format(idx)
-        if method == 'hdf':
-            lc.to_hdf(output, mode=mode, key=key, append=append, format=format)
-        elif method == 'csv':
-            lc.to_csv(output, mode=mode)
-        else:
-            raise ValueError('method not implemented yet')
-
-    def write_population(self, output, method, clobber=False, key=None, format='t',
-                         get_dataframe=False):
-        mode = 'a'
-        if clobber:
-            mode = 'w'
-        if key is None:
-            key='population'
-        append=not(clobber)
-        idxvalues = list(idx for idx in self.population.idxvalues)
-        l = list(self.population.modelparams(idx) for idx in self.population.idxvalues) 
-        df = pd.DataFrame(l, index=idxvalues)
-        if method is None:
-            pass
-        elif method=='hdf':
-            df.to_hdf(output, mode=mode, append=append, clobber=clobber, key=key, format='t')
-        else:
-            raise ValueError('method not implemented')
-        if get_dataframe:
-            return df
-
-    def write_photometry(self, output, method, clobber=False, key=None, format='t'):
-
+	Parameters
+	----------
+	fname : string,  mandatory
+	    output filename to which the photometry table 
+	method : {'hdf'}
+	format : {'table'}
+	append : {True|False}
+	    If False, clobber filename
+	"""
         for idx in self.population.idxvalues:
-            print('writing {0}, {1}, {2}'.format(idx, clobber, key))
-            append=not(clobber)
-            self.write_lc(idx, output, method, clobber, key=key,
-                          append=append, format=format)
-            clobber = False
+            self.write_lc(idx, fname, key, format=format,
+                          append=append)
 
-    def write_simulation(self, phot_output, pop_output, method, clobber=False,
-                         key=None, format='t'):
-        """
-        """
-        self.write_photometry(phot_output, method, clobber=clobber, key=key, format=format) 
-        self.write_population(pop_output, method, clobber=clobber, key=key, format=format)
+    def write_simulation(self, population_fname, photometry_fname,
+                         pop_key='0', phot_key='0'):
+        self.write_population(population_fname, key=pop_key)
+        self.write_photometry(photometry_fname, key=phot_key, format='table', append=True)
