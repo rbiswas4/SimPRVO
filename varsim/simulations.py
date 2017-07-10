@@ -33,20 +33,66 @@ class BasicSimulation(BaseSimulation):
     pointingcolumnDict : None
     pruneWithRadius : False
     """
+    def __init__(self, rng, rng_obs, pointings, population, model,
+                 bandpassDict='lsst', timeRange=(-70., 100.)):
+        self._rng = rng
+        self._rng_obs = rng_obs
+        self._pointings = pointings
+        self.model = model
+        self.population = population
+        self.timeRange = timeRange
+        if bandpassDict == 'lsst':
+            self.bandPasses = BandpassDict.loadTotalBandpassesFromFiles()
+        else:
+            self.bandPasses = bandpassDict
+        
+    @property
+    def randomState(self):
+        return self._rng
+    @property
+    def randomObs(self):
+        return self._rng_obs
+    
+    @property
+    def pointings(self):
+        return self._pointings
+
     def pair_method(self, obsHistID, objID):
         return '_'.join(map(str, [obsHistID, objID]))
 
-    def lc(self, idx,
-           add_cols=('ModelFlux', 'deviations', 'objID', 'fieldID',
-                     'obsHistID', 'fiveSigmaDepth')):
+    def modelFlux(self, idx):
         params = self.population.modelParams(idx)
         self.model.setModelParameters(params)
+
         if self.timeRange is None:
             df = self.pointings.copy()
         else:
             l, h = self.timeRange
             df = self.pointings.query('expMJD < @h and expMJD > @l')
+
+        modelFlux = np.zeros(len(df))
+        for i, rowtuple in enumerate(df.iterrows()):
+            row = rowtuple[1]
+            bp = self.bandPasses[row['filter']]
+            modelFlux[i] = self.model.modelFlux(row['expMJD'],
+                                                bandpassobj=bp)
+        return modelFlux
+
+    def lc(self, idx,
+           add_cols=('ModelFlux', 'deviations', 'objID', 'fieldID',
+                     'obsHistID', 'fiveSigmaDepth')):
         
+        if self.timeRange is None:
+            df = self.pointings.copy()
+        else:
+            l, h = self.timeRange
+            df = self.pointings.query('expMJD < @h and expMJD > @l')
+        cols = list(LightCurve.requiredColumns.union(set(add_cols)))
+        if len(df) == 0 :
+            return pd.DataFrame(dict(a=[a]))
+        params = self.population.modelParams(idx)
+        self.model.setModelParameters(params)
+        df['expID'] = list(self.pair_method(idx, obshistid) for obshistid in df.reset_index().obsHistID.values)
         fluxerr = np.zeros(len(df))
         modelFlux = np.zeros(len(df))
         sn = SNObject(30., 40.)
@@ -69,11 +115,8 @@ class BasicSimulation(BaseSimulation):
         df['flux'] = df['ModelFlux'] + df['deviations'] * df['fluxerr']
         df['zpsys'] = 'ab'
         df['objID'] = idx
-        df['expID'] = list(self.pair_method(idx, obshistid) for obshistid in df.reset_index().obsHistID)
         lc = df.reset_index().set_index('expID')
 
-        _lc = LightCurve(lc)	
-        cols = list(_lc.mandatoryColumns.union(set(add_cols)))
         lc = lc[cols]
         return LightCurve(lc, bandNameDict=dict((x, 'lsst' + x) for x in list('ugrizy') ))
 
